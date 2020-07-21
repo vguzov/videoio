@@ -60,9 +60,9 @@ frames = videoread("in.mp4", output_resolution=(100, 250))
 ```
 
 ## Prerequisites
-- ffmpeg with libx264 enabled and ffprobe (usually comes with ffmpeg)
-- NumPy
-- ffmpeg-python
+- `ffmpeg` with libx264 enabled and `ffprobe` (usually comes with ffmpeg)
+- `numpy`
+- `ffmpeg-python`
 
 ## Installation
 From pip:
