@@ -1,5 +1,5 @@
 # videoio: save/load image sequence as H.264 video
-A small library for saving and loading RGB and uint16 (depth) frames as H.264 encoded video
+A small Python module for saving and loading RGB and uint16 (depth) frames as H.264 encoded video
 
 ## Quickstart
 ##### Save/load RGB frames:
