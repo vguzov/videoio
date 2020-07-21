@@ -1,13 +1,8 @@
 from setuptools import setup
-version = '0.1.0'
+version = '0.1.1'
 
-
-long_description = """
-videoio: save/load image sequence as H.264 video
-A small library for saving and loading RGB and uint16 (depth) frames as H.264 encoded video.
-
-Github: https://github.com/vguzov/videoio
-"""
+with open("README.md", "r") as fi:
+    long_description = fi.read()
 
 keywords = ["mp4", "png", "h264", "video", "image", "depth", "ffmpeg"]
 
@@ -30,6 +25,7 @@ setup(
     url="https://github.com/vguzov/videoio",
     keywords=keywords,
     long_description=long_description,
+    long_description_content_type='text/markdown',
     install_requires=["numpy", "ffmpeg-python"],
     classifiers=classifiers
 )
