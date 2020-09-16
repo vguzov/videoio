@@ -127,6 +127,12 @@ class VideoReader:
         )
         return self
 
+    def __len__(self) -> int:
+        if 'length' in self.video_params:
+            return self.video_params['length']
+        else:
+            return 0
+
     def __next__(self) -> np.ndarray:
         in_bytes = self.ffmpeg_process.stdout.read(np.prod(self.resolution) * 3)
         if not in_bytes:
