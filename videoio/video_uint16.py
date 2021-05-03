@@ -25,31 +25,33 @@ def uint16read(path: str, output_resolution: Tuple[int, int] = None) -> np.ndarr
     if output_resolution is not None:
         resolution = output_resolution
         ffmpeg_input = ffmpeg_input.filter("scale", *resolution)
+    frames = []
     ffmpeg_process = (
         ffmpeg_input
             .output('pipe:', format='rawvideo', pix_fmt='yuv444p')
             .global_args('-nostdin')
             .run_async(pipe_stdout=True)
     )
-    frames = []
-    while True:
-        in_bytes = ffmpeg_process.stdout.read(np.prod(resolution) * 3)
-        if not in_bytes:
-            break
-        in_frame = (
-            np
-                .frombuffer(in_bytes, np.uint8)
-                .reshape(3, *resolution[::-1])
-        )
-        upper_part = in_frame[2,:,:]
-        lower_coding = in_frame[0,:,:]
-        upper_isodd = upper_part % 2 == 1
-        lower_part = lower_coding.copy()
-        lower_part[upper_isodd] = 255-lower_part[upper_isodd]
-        frame = lower_part.astype(np.uint16) + upper_part.astype(np.uint16) * 256
-        frames.append(frame)
-
-    ffmpeg_process.wait()
+    try:
+        while True:
+            in_bytes = ffmpeg_process.stdout.read(np.prod(resolution) * 3)
+            if not in_bytes:
+                break
+            in_frame = (
+                np
+                    .frombuffer(in_bytes, np.uint8)
+                    .reshape(3, *resolution[::-1])
+            )
+            upper_part = in_frame[2,:,:]
+            lower_coding = in_frame[0,:,:]
+            upper_isodd = upper_part % 2 == 1
+            lower_part = lower_coding.copy()
+            lower_part[upper_isodd] = 255-lower_part[upper_isodd]
+            frame = lower_part.astype(np.uint16) + upper_part.astype(np.uint16) * 256
+            frames.append(frame)
+    finally:
+        ffmpeg_process.stdout.close()
+        ffmpeg_process.wait()
     return np.array(frames)
 
 
@@ -73,12 +75,6 @@ def uint16save(path: str, data: np.ndarray, preset: str = 'slow', fps: float = N
         input_params['framerate'] = fps
     ffmpeg_input = ffmpeg.input('pipe:', **input_params)
     encoding_params = {'c:v': 'libx264', 'preset': preset, 'profile:v': 'high444', 'crf': 0}
-    ffmpeg_process = (
-        ffmpeg_input
-            .output(path, pix_fmt='yuv444p', **encoding_params)
-            .overwrite_output()
-            .run_async(pipe_stdin=True)
-    )
     zeros = np.zeros(data.shape, dtype=np.uint8)
     if data.dtype == np.uint16:
         upper_part = (data/256).astype(np.uint8)
@@ -91,10 +87,18 @@ def uint16save(path: str, data: np.ndarray, preset: str = 'slow', fps: float = N
         # data = np.stack([(data%256).astype(np.uint8), (data/256).astype(np.uint8), zeros], axis=1)
     else:
         data = np.stack([data, zeros, zeros], axis=1)
-    for frame in data:
-        ffmpeg_process.stdin.write(frame.tobytes())
-    ffmpeg_process.stdin.close()
-    ffmpeg_process.wait()
+    ffmpeg_process = (
+        ffmpeg_input
+            .output(path, pix_fmt='yuv444p', **encoding_params)
+            .overwrite_output()
+            .run_async(pipe_stdin=True)
+    )
+    try:
+        for frame in data:
+            ffmpeg_process.stdin.write(frame.tobytes())
+    finally:
+        ffmpeg_process.stdin.close()
+        ffmpeg_process.wait()
 
 class Uint16Reader:
     def __init__(self, path: str, output_resolution: Tuple[int, int] = None):
@@ -136,6 +140,13 @@ class Uint16Reader:
         else:
             return 0
 
+    def close(self):
+        """
+        Close reader thread
+        """
+        self.ffmpeg_process.stdout.close()
+        self.ffmpeg_process.wait()
+
     def __next__(self) -> np.ndarray:
         in_bytes = self.ffmpeg_process.stdout.read(np.prod(self.resolution) * 3)
         if not in_bytes:
@@ -148,6 +159,9 @@ class Uint16Reader:
         lower_part[upper_isodd] = 255 - lower_part[upper_isodd]
         frame = lower_part.astype(np.uint16) + upper_part.astype(np.uint16) * 256
         return frame
+
+    def __del__(self):
+        self.close()
 
 class Uint16Writer:
     """

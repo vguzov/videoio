@@ -30,25 +30,23 @@ def videoread(path: str, return_attributes: bool = False, stream_number: int = 0
     if output_resolution is not None:
         resolution = output_resolution
         ffmpeg_input = ffmpeg_input.filter("scale", *resolution)
+    images = []
     ffmpeg_process = (
         ffmpeg_input
             .output('pipe:', format='rawvideo', pix_fmt='rgb24')
             .global_args('-nostdin')
             .run_async(pipe_stdout=True)
     )
-    images = []
-    while True:
-        in_bytes = ffmpeg_process.stdout.read(np.prod(resolution) * 3)
-        if not in_bytes:
-            break
-        in_frame = (
-            np
-                .frombuffer(in_bytes, np.uint8)
-                .reshape(*resolution[::-1], 3)
-        )
-        images.append(in_frame)
-
-    ffmpeg_process.wait()
+    try:
+        while True:
+            in_bytes = ffmpeg_process.stdout.read(np.prod(resolution) * 3)
+            if not in_bytes:
+                break
+            in_frame = np.frombuffer(in_bytes, np.uint8).reshape(*resolution[::-1], 3)
+            images.append(in_frame)
+    finally:
+        ffmpeg_process.stdout.close()
+        ffmpeg_process.wait()
     if return_attributes:
         return images, video_params
     return images
@@ -81,14 +79,16 @@ def videosave(path: str, images: np.ndarray, lossless: bool = False, preset: str
     ffmpeg_process = ffmpeg_input.output(path, pix_fmt='yuv444p' if lossless else 'yuv420p', **encoding_params)
 
     ffmpeg_process = ffmpeg_process.overwrite_output().run_async(pipe_stdin=True)
-    for color_frame in images:
-        if color_frame.dtype == np.float16 or color_frame.dtype == np.float32 or color_frame.dtype == np.float64:
-            color_frame = (color_frame*255).astype(np.uint8)
-        elif color_frame.dtype != np.uint8:
-            raise NotImplementedError("Dtype {} is not supported".format(color_frame.dtype))
-        ffmpeg_process.stdin.write(color_frame.tobytes())
-    ffmpeg_process.stdin.close()
-    ffmpeg_process.wait()
+    try:
+        for color_frame in images:
+            if color_frame.dtype == np.float16 or color_frame.dtype == np.float32 or color_frame.dtype == np.float64:
+                color_frame = (color_frame*255).astype(np.uint8)
+            elif color_frame.dtype != np.uint8:
+                raise NotImplementedError("Dtype {} is not supported".format(color_frame.dtype))
+            ffmpeg_process.stdin.write(color_frame.tobytes())
+    finally:
+        ffmpeg_process.stdin.close()
+        ffmpeg_process.wait()
 
 
 class VideoReader:
@@ -133,12 +133,22 @@ class VideoReader:
         else:
             return 0
 
+    def close(self):
+        """
+        Close reader thread
+        """
+        self.ffmpeg_process.stdout.close()
+        self.ffmpeg_process.wait()
+
     def __next__(self) -> np.ndarray:
         in_bytes = self.ffmpeg_process.stdout.read(np.prod(self.resolution) * 3)
         if not in_bytes:
             raise StopIteration
         in_frame = np.frombuffer(in_bytes, np.uint8).reshape(*self.resolution[::-1], 3)
         return in_frame
+
+    def __del__(self):
+        self.close()
 
 
 class VideoWriter:
