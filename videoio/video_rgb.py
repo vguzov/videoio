@@ -1,12 +1,12 @@
 import os
 import numpy as np
 import ffmpeg
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Union
 from .info import read_video_params, H264_PRESETS
 
 
 def videoread(path: str, return_attributes: bool = False, stream_number: int = 0,
-              output_resolution: Tuple[int, int] = None) -> (np.ndarray, Tuple[np.ndarray, Dict]):
+              output_resolution: Tuple[int, int] = None) -> Union[np.ndarray, Tuple[np.ndarray, Dict]]:
     """
     Reads an input video to a NumPy array
     Args:
@@ -47,6 +47,7 @@ def videoread(path: str, return_attributes: bool = False, stream_number: int = 0
     finally:
         ffmpeg_process.stdout.close()
         ffmpeg_process.wait()
+    images = np.stack(images, axis=0)
     if return_attributes:
         return images, video_params
     return images
