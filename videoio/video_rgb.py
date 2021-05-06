@@ -1,12 +1,14 @@
 import os
 import numpy as np
 import ffmpeg
+import warnings
 from typing import Tuple, Dict, Union
 from .info import read_video_params, H264_PRESETS
 
 
 def videoread(path: str, return_attributes: bool = False, stream_number: int = 0,
-              output_resolution: Tuple[int, int] = None) -> Union[np.ndarray, Tuple[np.ndarray, Dict]]:
+              output_resolution: Tuple[int, int] = None, start_frame: int = 0) \
+        -> Union[np.ndarray, Tuple[np.ndarray, Dict]]:
     """
     Reads an input video to a NumPy array
     Args:
@@ -15,18 +17,25 @@ def videoread(path: str, return_attributes: bool = False, stream_number: int = 0
         stream_number (int): Stream number to extract video parameters from
         output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
             If None, resolution will be the same as resolution of original video.
+        start_frame (int): frame to start reading from.
+            Correct behaviour is guaranteed only if input video was produced by videoio.
     Returns:
         np.ndarray: (if return_attributes == False) Frames of the video
         tuple: (if return_attributes == True) Tuple containing:
             np.ndarray: Frames of the video
             dict: Parameter of the video (original height and width and frame rate)
     """
+    assert start_frame >= 0, "Starting frame should be positive"
     if not os.path.isfile(path):
         raise FileNotFoundError("{} does not exist".format(path))
 
     video_params = read_video_params(path, stream_number=stream_number)
     resolution = np.array((video_params['width'], video_params['height']))
-    ffmpeg_input = ffmpeg.input(path, loglevel='error')
+    if start_frame != 0:
+        start_frame_time = (start_frame-0.5)/video_params['fps']
+        ffmpeg_input = ffmpeg.input(path, loglevel='error', ss=start_frame_time)
+    else:
+        ffmpeg_input = ffmpeg.input(path, loglevel='error')
     if output_resolution is not None:
         resolution = output_resolution
         ffmpeg_input = ffmpeg_input.filter("scale", *resolution)
@@ -96,15 +105,20 @@ class VideoReader:
     """
     Iterable class for reading video frame-by-frame
     """
-    def __init__(self, path: str, stream_number: int = 0, output_resolution: Tuple[int, int] = None):
+    def __init__(self, path: str, stream_number: int = 0,
+                 output_resolution: Tuple[int, int] = None, start_frame: int = 0):
         """
         Args:
             path (str): Path to input video
             stream_number (int): Stream number to extract video parameters from
             output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
                 If None, resolution will be the same as resolution of original video.
+            start_frame (int): frame to start reading from.
+                Correct behaviour is guaranteed only if input video was produced by videoio.
         """
+        assert start_frame >= 0, "Starting frame should be positive"
         self.path = path
+        self.start_frame = start_frame
         if not os.path.isfile(path):
             raise FileNotFoundError("{} does not exist".format(path))
 
@@ -117,7 +131,11 @@ class VideoReader:
             self.apply_scale = False
 
     def __iter__(self):
-        ffmpeg_input = ffmpeg.input(self.path, loglevel='error')
+        if self.start_frame != 0:
+            start_frame_time = (self.start_frame - 0.5) / self.video_params['fps']
+            ffmpeg_input = ffmpeg.input(self.path, loglevel='error', ss=start_frame_time)
+        else:
+            ffmpeg_input = ffmpeg.input(self.path, loglevel='error')
         if self.apply_scale:
             ffmpeg_input = ffmpeg_input.filter("scale", *self.resolution)
         self.ffmpeg_process = (

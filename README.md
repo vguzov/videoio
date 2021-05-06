@@ -59,8 +59,17 @@ videosave("out.mp4", frames, lossless=True, preset="veryfast", fps=10.5)
 frames = videoread("in.mp4", output_resolution=(100, 250))
 ```
 
+##### Read video/uint16-array starting from certain frame: 
+(Works if the input video was created by videoio, other cases are not guaranteed)
+```python
+frames = videoread("in.mp4", start_frame=100)
+
+for frame in VideoReader("in.mp4", start_frame=100):
+    do_something_with(frame)
+```
+
 ## Prerequisites
-- `ffmpeg` with libx264 enabled and `ffprobe` (usually comes with ffmpeg)
+- `ffmpeg>=2.1` with libx264 enabled and `ffprobe` (usually comes with ffmpeg)
 - `numpy`
 - `ffmpeg-python`
 

@@ -5,7 +5,7 @@ from typing import Tuple
 from .info import read_video_params, H264_PRESETS
 
 
-def uint16read(path: str, output_resolution: Tuple[int, int] = None) -> np.ndarray:
+def uint16read(path: str, output_resolution: Tuple[int, int] = None, start_frame: int = 0) -> np.ndarray:
     """
     Read 16-bit unsigned integer array encoded with uint16save function
     Args:
@@ -13,15 +13,22 @@ def uint16read(path: str, output_resolution: Tuple[int, int] = None) -> np.ndarr
         output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
             If None, resolution will be the same as resolution of original video.
             Warning: changing this parameter may lead to undesirable data corruption.
+        start_frame (int): frame to start reading from.
+            Correct behaviour is guaranteed only if input array was produced by videoio.
     Returns:
         np.ndarray: 3-dimensional array of uint16 datatype
     """
+    assert start_frame >= 0, "Starting frame should be positive"
     if not os.path.isfile(path):
         raise FileNotFoundError("{} does not exist".format(path))
 
     video_params = read_video_params(path, stream_number=0)
     resolution = (video_params['width'], video_params['height'])
-    ffmpeg_input = ffmpeg.input(path, loglevel='error')
+    if start_frame != 0:
+        start_frame_time = (start_frame - 0.5) / video_params['fps']
+        ffmpeg_input = ffmpeg.input(path, loglevel='error', ss=start_frame_time)
+    else:
+        ffmpeg_input = ffmpeg.input(path, loglevel='error')
     if output_resolution is not None:
         resolution = output_resolution
         ffmpeg_input = ffmpeg_input.filter("scale", *resolution)
@@ -52,7 +59,7 @@ def uint16read(path: str, output_resolution: Tuple[int, int] = None) -> np.ndarr
     finally:
         ffmpeg_process.stdout.close()
         ffmpeg_process.wait()
-    return np.array(frames)
+    return np.stack(frames, axis=0)
 
 
 def uint16save(path: str, data: np.ndarray, preset: str = 'slow', fps: float = None):
@@ -101,7 +108,7 @@ def uint16save(path: str, data: np.ndarray, preset: str = 'slow', fps: float = N
         ffmpeg_process.wait()
 
 class Uint16Reader:
-    def __init__(self, path: str, output_resolution: Tuple[int, int] = None):
+    def __init__(self, path: str, output_resolution: Tuple[int, int] = None, start_frame: int = 0):
         """
         Iterable class for reading uint16 data sequentially
         Args:
@@ -109,8 +116,12 @@ class Uint16Reader:
             output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
                 If None, resolution will be the same as resolution of original video.
                 Warning: changing this parameter may lead to undesirable data corruption.
+            start_frame (int): frame to start reading from.
+                Correct behaviour is guaranteed only if input array was produced by videoio.
         """
+        assert start_frame >= 0, "Starting frame should be positive"
         self.path = path
+        self.start_frame = start_frame
         if not os.path.isfile(path):
             raise FileNotFoundError("{} does not exist".format(path))
 
@@ -123,7 +134,11 @@ class Uint16Reader:
             self.apply_scale = False
 
     def __iter__(self):
-        ffmpeg_input = ffmpeg.input(self.path, loglevel='error')
+        if self.start_frame != 0:
+            start_frame_time = (self.start_frame - 0.5) / self.video_params['fps']
+            ffmpeg_input = ffmpeg.input(self.path, loglevel='error', ss=start_frame_time)
+        else:
+            ffmpeg_input = ffmpeg.input(self.path, loglevel='error')
         if self.apply_scale:
             ffmpeg_input = ffmpeg_input.filter("scale", *self.resolution)
         self.ffmpeg_process = (
