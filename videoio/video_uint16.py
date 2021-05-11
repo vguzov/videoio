@@ -132,6 +132,7 @@ class Uint16Reader:
             self.apply_scale = True
         else:
             self.apply_scale = False
+        self.ffmpeg_process = None
 
     def __iter__(self):
         if self.start_frame != 0:
@@ -159,8 +160,9 @@ class Uint16Reader:
         """
         Close reader thread
         """
-        self.ffmpeg_process.stdout.close()
-        self.ffmpeg_process.wait()
+        if self.ffmpeg_process is not None:
+            self.ffmpeg_process.stdout.close()
+            self.ffmpeg_process.wait()
 
     def __next__(self) -> np.ndarray:
         in_bytes = self.ffmpeg_process.stdout.read(np.prod(self.resolution) * 3)
