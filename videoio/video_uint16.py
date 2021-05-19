@@ -51,10 +51,10 @@ def uint16read(path: str, output_resolution: Tuple[int, int] = None, start_frame
             )
             upper_part = in_frame[2,:,:]
             lower_coding = in_frame[0,:,:]
-            upper_isodd = upper_part % 2 == 1
+            upper_isodd = (upper_part & 1) == 1
             lower_part = lower_coding.copy()
             lower_part[upper_isodd] = 255-lower_part[upper_isodd]
-            frame = lower_part.astype(np.uint16) + upper_part.astype(np.uint16) * 256
+            frame = lower_part.astype(np.uint16) + (upper_part.astype(np.uint16) << 8)
             frames.append(frame)
     finally:
         ffmpeg_process.stdout.close()
@@ -84,14 +84,12 @@ def uint16save(path: str, data: np.ndarray, preset: str = 'slow', fps: float = N
     encoding_params = {'c:v': 'libx264', 'preset': preset, 'profile:v': 'high444', 'crf': 0}
     zeros = np.zeros(data.shape, dtype=np.uint8)
     if data.dtype == np.uint16:
-        upper_part = (data/256).astype(np.uint8)
-        lower_part = (data%256).astype(np.uint8)
-        upper_isodd = upper_part%2 == 1
+        upper_part = (data >> 8).astype(np.uint8)
+        lower_part = (data & 255).astype(np.uint8)
+        upper_isodd = (upper_part & 1) == 1
         lower_coding = lower_part.copy()
         lower_coding[upper_isodd] = 255-lower_coding[upper_isodd]
-        # lower_coding = lower_coding.astype(np.uint8)
         data = np.stack([lower_coding, zeros, upper_part], axis=1)
-        # data = np.stack([(data%256).astype(np.uint8), (data/256).astype(np.uint8), zeros], axis=1)
     else:
         data = np.stack([data, zeros, zeros], axis=1)
     ffmpeg_process = (
@@ -171,10 +169,10 @@ class Uint16Reader:
         in_frame = np.frombuffer(in_bytes, np.uint8).reshape(3, *self.resolution[::-1])
         upper_part = in_frame[2, :, :]
         lower_coding = in_frame[0, :, :]
-        upper_isodd = upper_part % 2 == 1
+        upper_isodd = (upper_part & 1) == 1
         lower_part = lower_coding.copy()
         lower_part[upper_isodd] = 255 - lower_part[upper_isodd]
-        frame = lower_part.astype(np.uint16) + upper_part.astype(np.uint16) * 256
+        frame = lower_part.astype(np.uint16) + (upper_part.astype(np.uint16) << 8)
         return frame
 
     def __del__(self):
@@ -216,9 +214,9 @@ class Uint16Writer:
         assert data.dtype == np.uint16 or data.dtype == np.uint8, "Dtype {} is not supported".format(data.dtype)
         zeros = np.zeros(data.shape, dtype=np.uint8)
         if data.dtype == np.uint16:
-            upper_part = (data / 256).astype(np.uint8)
-            lower_part = (data % 256).astype(np.uint8)
-            upper_isodd = upper_part % 2 == 1
+            upper_part = (data >> 8).astype(np.uint8)
+            lower_part = (data & 255).astype(np.uint8)
+            upper_isodd = (upper_part & 1) == 1
             lower_coding = lower_part.copy()
             lower_coding[upper_isodd] = 255 - lower_coding[upper_isodd]
             data = np.stack([lower_coding, zeros, upper_part], axis=0)
