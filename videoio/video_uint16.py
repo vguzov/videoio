@@ -150,7 +150,7 @@ class Uint16Reader:
 
     def __len__(self) -> int:
         if 'length' in self.video_params:
-            return self.video_params['length']
+            return max(self.video_params['length'] - self.start_frame, 0)
         else:
             return 0
 
