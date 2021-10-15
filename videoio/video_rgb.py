@@ -7,7 +7,8 @@ from .info import read_video_params, H264_PRESETS
 
 
 def videoread(path: str, return_attributes: bool = False, stream_number: int = 0,
-              output_resolution: Tuple[int, int] = None, start_frame: int = 0) \
+              output_resolution: Tuple[int, int] = None, start_frame: int = 0,
+              respect_original_timestamps: bool = False) \
         -> Union[np.ndarray, Tuple[np.ndarray, Dict]]:
     """
     Reads an input video to a NumPy array
@@ -19,6 +20,10 @@ def videoread(path: str, return_attributes: bool = False, stream_number: int = 0
             If None, resolution will be the same as resolution of original video.
         start_frame (int): frame to start reading from.
             Correct behaviour is guaranteed only if input video was produced by videoio.
+        respect_original_timestamps (bool): whether to read frames according to timestamps or not
+            If True, frames will be extracted according to framerate and video timestamps,
+            otherwise just a raw stream of frames will be read
+
     Returns:
         np.ndarray: (if return_attributes == False) Frames of the video
         tuple: (if return_attributes == True) Tuple containing:
@@ -40,12 +45,11 @@ def videoread(path: str, return_attributes: bool = False, stream_number: int = 0
         resolution = output_resolution
         ffmpeg_input = ffmpeg_input.filter("scale", *resolution)
     images = []
-    ffmpeg_process = (
-        ffmpeg_input
-            .output('pipe:', format='rawvideo', pix_fmt='rgb24')
-            .global_args('-nostdin')
-            .run_async(pipe_stdout=True)
-    )
+    if respect_original_timestamps:
+        ffmpeg_output = ffmpeg_input.output('pipe:', format='rawvideo', pix_fmt='rgb24')
+    else:
+        ffmpeg_output = ffmpeg_input.output('pipe:', format='rawvideo', pix_fmt='rgb24', vsync='0')
+    ffmpeg_process = ffmpeg_output.global_args('-nostdin').run_async(pipe_stdout=True)
     try:
         while True:
             in_bytes = ffmpeg_process.stdout.read(np.prod(resolution) * 3)
@@ -106,7 +110,8 @@ class VideoReader:
     Iterable class for reading video frame-by-frame
     """
     def __init__(self, path: str, stream_number: int = 0,
-                 output_resolution: Tuple[int, int] = None, start_frame: int = 0):
+                 output_resolution: Tuple[int, int] = None, start_frame: int = 0,
+                 respect_original_timestamps: bool = False):
         """
         Args:
             path (str): Path to input video
@@ -115,10 +120,14 @@ class VideoReader:
                 If None, resolution will be the same as resolution of original video.
             start_frame (int): frame to start reading from.
                 Correct behaviour is guaranteed only if input video was produced by videoio.
+            respect_original_timestamps (bool): whether to read frames according to timestamps or not
+                If True, frames will be extracted according to framerate and video timestamps,
+                otherwise just a raw stream of frames will be read
         """
         assert start_frame >= 0, "Starting frame should be positive"
         self.path = path
         self.start_frame = start_frame
+        self.respect_original_timestamps = respect_original_timestamps
         if not os.path.isfile(path):
             raise FileNotFoundError("{} does not exist".format(path))
 
@@ -139,12 +148,12 @@ class VideoReader:
             ffmpeg_input = ffmpeg.input(self.path, loglevel='error')
         if self.apply_scale:
             ffmpeg_input = ffmpeg_input.filter("scale", *self.resolution)
-        self.ffmpeg_process = (
-            ffmpeg_input
-            .output('pipe:', format='rawvideo', pix_fmt='rgb24')
-            .global_args('-nostdin')
-            .run_async(pipe_stdout=True)
-        )
+
+        if self.respect_original_timestamps:
+            ffmpeg_output = ffmpeg_input.output('pipe:', format='rawvideo', pix_fmt='rgb24')
+        else:
+            ffmpeg_output = ffmpeg_input.output('pipe:', format='rawvideo', pix_fmt='rgb24', vsync='0')
+        self.ffmpeg_process = ffmpeg_output.global_args('-nostdin').run_async(pipe_stdout=True)
         return self
 
     def __len__(self) -> int:

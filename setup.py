@@ -1,5 +1,5 @@
 from setuptools import setup
-version = '0.2.3'
+version = '0.2.4'
 
 with open("README.md", "r") as fi:
     long_description = fi.read()
