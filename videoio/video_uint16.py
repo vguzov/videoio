@@ -158,7 +158,7 @@ class Uint16Reader:
         """
         Close reader thread
         """
-        if self.ffmpeg_process is not None:
+        if hasattr(self, "ffmpeg_process") and self.ffmpeg_process is not None:
             self.ffmpeg_process.stdout.close()
             self.ffmpeg_process.wait()
 
@@ -228,8 +228,9 @@ class Uint16Writer:
         """
         Finish video creation process and close video file
         """
-        self.ffmpeg_process.stdin.close()
-        self.ffmpeg_process.wait()
+        if hasattr(self, "ffmpeg_process"):
+            self.ffmpeg_process.stdin.close()
+            self.ffmpeg_process.wait()
 
     def __enter__(self):
         return self

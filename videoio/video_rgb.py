@@ -166,7 +166,7 @@ class VideoReader:
         """
         Close reader thread
         """
-        if self.ffmpeg_process is not None:
+        if hasattr(self, "ffmpeg_process") and self.ffmpeg_process is not None:
             self.ffmpeg_process.stdout.close()
             self.ffmpeg_process.wait()
 
@@ -208,9 +208,9 @@ class VideoWriter:
             encoding_params['profile:v'] = 'high444'
             encoding_params['crf'] = 0
 
-        self.ffmpeg_process = ffmpeg_input.output(path, pix_fmt='yuv444p' if lossless else 'yuv420p', **encoding_params)
+        ffmpeg_process = ffmpeg_input.output(path, pix_fmt='yuv444p' if lossless else 'yuv420p', **encoding_params)
 
-        self.ffmpeg_process = self.ffmpeg_process.overwrite_output().run_async(pipe_stdin=True)
+        self.ffmpeg_process = ffmpeg_process.overwrite_output().run_async(pipe_stdin=True)
 
     def write(self, color_frame: np.ndarray):
         """
@@ -232,8 +232,9 @@ class VideoWriter:
         """
         Finish video creation process and close video file
         """
-        self.ffmpeg_process.stdin.close()
-        self.ffmpeg_process.wait()
+        if hasattr(self, "ffmpeg_process"):
+            self.ffmpeg_process.stdin.close()
+            self.ffmpeg_process.wait()
 
     def __enter__(self):
         return self
