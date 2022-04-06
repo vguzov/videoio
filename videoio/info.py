@@ -4,6 +4,8 @@ from typing import Dict
 
 
 H264_PRESETS = ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'veryslow']
+HARDWARE_ACC_OPTIONS = [None, 'vaapi']
+LOSSLESS_ACC_OPTIONS = [None]
 
 
 def read_video_params(path: str, stream_number: int = 0) -> Dict:
@@ -40,3 +42,26 @@ def read_video_params(path: str, stream_number: int = 0) -> Dict:
     if length is not None:
         params['length'] = length
     return params
+
+
+def find_vaapi_device():
+    """Search for available VA API device in /dev/dri
+
+    Returns:
+        Optional[str]: path to device, None if nothing is found
+    """
+    dri_path = "/dev/dri"
+    if os.path.exists(dri_path):
+        for device_name in os.listdir(dri_path):
+            device_path = os.path.join(dri_path, device_name)
+            try:
+                stdout, stderr = ffmpeg.input("-", vaapi_device=device_path).output("-").run(capture_stderr=True, input='')
+            except ffmpeg.Error as ffmpeg_error:
+                if b"Unrecognized option 'vaapi_device'" in ffmpeg_error.stderr:
+                    raise Exception("Current ffmpeg binary does not support VA-API")
+                stderr = ffmpeg_error.stderr
+            if b"Device creation failed" not in stderr:
+                return device_path
+    else:
+        raise Exception("Failed to find VA-API hardware (no access to DRI path {})".format(dri_path))
+

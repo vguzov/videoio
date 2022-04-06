@@ -3,7 +3,7 @@ import numpy as np
 import ffmpeg
 import warnings
 from typing import Tuple, Dict, Union
-from .info import read_video_params, H264_PRESETS
+from .info import read_video_params, find_vaapi_device, H264_PRESETS, HARDWARE_ACC_OPTIONS, LOSSLESS_ACC_OPTIONS
 
 
 def videoread(path: str, return_attributes: bool = False, stream_number: int = 0,
@@ -186,7 +186,7 @@ class VideoWriter:
     Class for writing a video frame-by-frame
     """
     def __init__(self, path:str, resolution: Tuple[int, int], lossless: bool = False,
-                 preset: str = 'slow', fps: float = None):
+                 preset: str = 'slow', fps: float = None, hwacc: str = None):
         """
         Args:
             path (str): Path to output video
@@ -195,20 +195,36 @@ class VideoWriter:
                 Be aware: lossless format is still lossy due to RGB to YUV conversion inaccuracy
             preset (str): H.264 compression preset
             fps (float): Target FPS. If None, will be set to ffmpeg's default
+            hwacc (str): Use hardware acceleration (None to use software encoding)
         """
-        assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
+        assert preset in H264_PRESETS, "Preset '{}' is not supported, supported presets are {}". \
             format(preset, H264_PRESETS)
+        hwacc = None if hwacc is None else hwacc.lower()
+        assert hwacc in HARDWARE_ACC_OPTIONS, "Hardware acceleration option '{}' is not supported, " \
+                                              "available options are".format(hwacc, HARDWARE_ACC_OPTIONS)
+        assert (not lossless or hwacc in LOSSLESS_ACC_OPTIONS), "Hardware acceleration option '{}' " \
+                                                                "does not support lossless encoding".format(hwacc)
         self.resolution = resolution
         input_params = dict(format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(*resolution), loglevel='error')
+        encoding_params = dict()
         if fps is not None:
             input_params['framerate'] = fps
-        ffmpeg_input = ffmpeg.input('pipe:', **input_params)
-        encoding_params = {"c:v": "libx264", "preset": preset}
+        if hwacc is None:
+            encoding_params = {"c:v": "libx264", "preset": preset, "pix_fmt": 'yuv444p' if lossless else 'yuv420p'}
+        elif hwacc == "vaapi":
+            input_params['vaapi_device'] = find_vaapi_device()
+            input_params['hwaccel'] = "vaapi"
+            input_params['hwaccel_output_format'] = "vaapi"
+            if input_params['vaapi_device'] is None:
+                raise Exception("No VA-API capable device was found")
+            encoding_params = {"c:v": "h264_vaapi", "vf": "format=nv12,hwupload",
+                               "compression_level": 7-max(H264_PRESETS.index(preset),6)}
         if lossless:
             encoding_params['profile:v'] = 'high444'
             encoding_params['crf'] = 0
 
-        ffmpeg_process = ffmpeg_input.output(path, pix_fmt='yuv444p' if lossless else 'yuv420p', **encoding_params)
+        ffmpeg_input = ffmpeg.input('pipe:', **input_params)
+        ffmpeg_process = ffmpeg_input.output(path, **encoding_params)
 
         self.ffmpeg_process = ffmpeg_process.overwrite_output().run_async(pipe_stdin=True)
 
