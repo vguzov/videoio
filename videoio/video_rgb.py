@@ -2,8 +2,8 @@ import os
 import numpy as np
 import ffmpeg
 import warnings
-from typing import Tuple, Dict, Union
-from .info import read_video_params, H264_PRESETS
+from typing import Tuple, Dict, Union, Optional
+from .info import read_video_params, H264_PRESETS, LOSSLESS_CODECS
 
 
 def videoread(path: str, return_attributes: bool = False, stream_number: int = 0,
@@ -185,29 +185,48 @@ class VideoWriter:
     """
     Class for writing a video frame-by-frame
     """
-    def __init__(self, path:str, resolution: Tuple[int, int], lossless: bool = False,
-                 preset: str = 'slow', fps: float = None):
+    def __init__(self, path:str, resolution: Tuple[int, int], fps: Optional[float] = None,
+            codec: str = 'h264', quality: Optional[int] = None, lossless: bool = False, **kwargs):
         """
         Args:
             path (str): Path to output video
             resolution (Tuple[int, int]): Resolution of the input frames and output video (width, height)
+            fps (float): Target FPS. If None, will be set to ffmpeg's default
+            codec (str): Target encoder (mpeg2 or h264)
+            quality (Optional[int]): parameter which controls qscale param in codec (bigger value -> worse quality).
+                If None, the standard codec-specific value will be used.
             lossless (bool): Whether to apply lossless encoding.
                 Be aware: lossless format is still lossy due to RGB to YUV conversion inaccuracy
-            preset (str): H.264 compression preset
-            fps (float): Target FPS. If None, will be set to ffmpeg's default
+        Kwargs params:
+            Using H.264 codec:
+
+                preset (str): H.264 compression preset
         """
-        assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
-            format(preset, H264_PRESETS)
+        # assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
+        #     format(preset, H264_PRESETS)
+        assert not lossless or codec in LOSSLESS_CODECS, "Codec '{}' does not support lossless encoding".format(codec)
         self.resolution = resolution
         input_params = dict(format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(*resolution), loglevel='error')
         if fps is not None:
             input_params['framerate'] = fps
+        # encoding_params = {"c:v": "libx264"}
+        codec = codec.lower()
+        encoding_params = {}
+        if codec == "h264":
+            encoding_params["c:v"] = "libx264"
+            if lossless:
+                encoding_params['profile:v'] = 'high444'
+                encoding_params['crf'] = 0
+        elif codec == "mpeg2":
+            encoding_params["c:v"] = "mpeg2video"
+            encoding_params["qscale:v"] = 5
+        elif codec == "mpeg4":
+            encoding_params["c:v"] = "libxvid"
+            encoding_params["qscale:v"] = 5
+        if quality is not None:
+            encoding_params["qscale:v"] = quality
+        encoding_params.update(kwargs)
         ffmpeg_input = ffmpeg.input('pipe:', **input_params)
-        encoding_params = {"c:v": "libx264", "preset": preset}
-        if lossless:
-            encoding_params['profile:v'] = 'high444'
-            encoding_params['crf'] = 0
-
         ffmpeg_process = ffmpeg_input.output(path, pix_fmt='yuv444p' if lossless else 'yuv420p', **encoding_params)
 
         self.ffmpeg_process = ffmpeg_process.overwrite_output().run_async(pipe_stdin=True)

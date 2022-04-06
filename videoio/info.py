@@ -4,6 +4,7 @@ from typing import Dict
 
 
 H264_PRESETS = ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'veryslow']
+LOSSLESS_CODECS = ["h264"]
 
 
 def read_video_params(path: str, stream_number: int = 0) -> Dict:
