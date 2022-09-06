@@ -1,15 +1,16 @@
 import os
 import numpy as np
 import ffmpeg
-from typing import Tuple
+from pathlib import Path
+from typing import Tuple, Union
 from .info import read_video_params, H264_PRESETS
 
 
-def uint16read(path: str, output_resolution: Tuple[int, int] = None, start_frame: int = 0) -> np.ndarray:
+def uint16read(path: Union[str, Path], output_resolution: Tuple[int, int] = None, start_frame: int = 0) -> np.ndarray:
     """
     Read 16-bit unsigned integer array encoded with uint16save function
     Args:
-        path (str): Path to input file
+        path (str, Path): Path to input file
         output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
             If None, resolution will be the same as resolution of original video.
             Warning: changing this parameter may lead to undesirable data corruption.
@@ -18,6 +19,7 @@ def uint16read(path: str, output_resolution: Tuple[int, int] = None, start_frame
     Returns:
         np.ndarray: 3-dimensional array of uint16 datatype
     """
+    path = str(path)
     assert start_frame >= 0, "Starting frame should be positive"
     if not os.path.isfile(path):
         raise FileNotFoundError("{} does not exist".format(path))
@@ -62,15 +64,16 @@ def uint16read(path: str, output_resolution: Tuple[int, int] = None, start_frame
     return np.stack(frames, axis=0)
 
 
-def uint16save(path: str, data: np.ndarray, preset: str = 'slow', fps: float = None):
+def uint16save(path: Union[str, Path], data: np.ndarray, preset: str = 'slow', fps: float = None):
     """
     Store 3-dimensional uint16 array in H.264 encoded video
     Args:
-        path (str): Path to output video
+        path (str, Path): Path to output video
         data (np.ndarray): 3-dimentional uint16 NumPy array
         preset (str): H.264 compression preset
         fps (float): Target FPS. If None, will be set to ffmpeg's default
     """
+    path = str(path)
     data = np.array(data)
     assert len(data[0].shape) == 2, "Multiple dimentions is not supported"
     assert data.dtype == np.uint16 or data.dtype == np.uint8, "Dtype {} is not supported".format(data.dtype)
@@ -106,17 +109,18 @@ def uint16save(path: str, data: np.ndarray, preset: str = 'slow', fps: float = N
         ffmpeg_process.wait()
 
 class Uint16Reader:
-    def __init__(self, path: str, output_resolution: Tuple[int, int] = None, start_frame: int = 0):
+    def __init__(self, path: Union[str, Path], output_resolution: Tuple[int, int] = None, start_frame: int = 0):
         """
         Iterable class for reading uint16 data sequentially
         Args:
-            path (str): Path to input file
+            path (str, Path): Path to input file
             output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
                 If None, resolution will be the same as resolution of original video.
                 Warning: changing this parameter may lead to undesirable data corruption.
             start_frame (int): frame to start reading from.
                 Correct behaviour is guaranteed only if input array was produced by videoio.
         """
+        path = str(path)
         assert start_frame >= 0, "Starting frame should be positive"
         self.path = path
         self.start_frame = start_frame
@@ -182,14 +186,15 @@ class Uint16Writer:
     """
     Class for storing a sequence of uint16 arrays in H.264 encoded video
     """
-    def __init__(self, path: str, resolution: Tuple[int, int], preset: str = 'slow', fps: float = None):
+    def __init__(self, path: Union[str, Path], resolution: Tuple[int, int], preset: str = 'slow', fps: float = None):
         """
         Args:
-            path (str): Path to output video
+            path (str, Path): Path to output video
             resolution (Tuple[int, int]): Resolution of the input frames and output video (width, height)
             preset (str): H.264 compression preset
             fps (float): Target FPS. If None, will be set to ffmpeg's default
         """
+        path = str(path)
         assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}".\
             format(preset, H264_PRESETS)
         input_params = dict(format='rawvideo', pix_fmt='yuv444p', s='{}x{}'.format(*resolution), loglevel='error')

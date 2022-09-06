@@ -2,18 +2,19 @@ import os
 import numpy as np
 import ffmpeg
 import warnings
+from pathlib import Path
 from typing import Tuple, Dict, Union, Optional
 from .info import read_video_params, H264_PRESETS, LOSSLESS_CODECS
 
 
-def videoread(path: str, return_attributes: bool = False, stream_number: int = 0,
+def videoread(path: Union[str, Path], return_attributes: bool = False, stream_number: int = 0,
               output_resolution: Tuple[int, int] = None, start_frame: int = 0,
               respect_original_timestamps: bool = False) \
         -> Union[np.ndarray, Tuple[np.ndarray, Dict]]:
     """
     Reads an input video to a NumPy array
     Args:
-        path (str): Path to input file
+        path (str, Path): Path to input file
         return_attributes (bool): Whether to return a dictionary with original video resolution and frame rate
         stream_number (int): Stream number to extract video parameters from
         output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
@@ -30,6 +31,7 @@ def videoread(path: str, return_attributes: bool = False, stream_number: int = 0
             np.ndarray: Frames of the video
             dict: Parameter of the video (original height and width and frame rate)
     """
+    path = str(path)
     assert start_frame >= 0, "Starting frame should be positive"
     if not os.path.isfile(path):
         raise FileNotFoundError("{} does not exist".format(path))
@@ -66,17 +68,18 @@ def videoread(path: str, return_attributes: bool = False, stream_number: int = 0
     return images
 
 
-def videosave(path: str, images: np.ndarray, lossless: bool = False, preset: str = 'slow', fps: float = None):
+def videosave(path: Union[str, Path], images: np.ndarray, lossless: bool = False, preset: str = 'slow', fps: float = None):
     """
     Saves the video with encoded with H.264 codec
     Args:
-        path (str): Path to output video
+        path (str, Path): Path to output video
         images (np.ndarray): NumPy array of video frames
         lossless (bool): Whether to apply lossless encoding.
             Be aware: lossless format is still lossy due to RGB to YUV conversion inaccuracy
         preset (str): H.264 compression preset
         fps (float): Target FPS. If None, will be set to ffmpeg's default
     """
+    path = str(path)
     assert images[0].shape[2] == 3, "Alpha channel is not supported"
     assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}".\
         format(preset, H264_PRESETS)
@@ -109,12 +112,12 @@ class VideoReader:
     """
     Iterable class for reading video frame-by-frame
     """
-    def __init__(self, path: str, stream_number: int = 0,
+    def __init__(self, path: Union[str, Path], stream_number: int = 0,
                  output_resolution: Tuple[int, int] = None, start_frame: int = 0,
                  respect_original_timestamps: bool = False):
         """
         Args:
-            path (str): Path to input video
+            path (str, Path): Path to input video
             stream_number (int): Stream number to extract video parameters from
             output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
                 If None, resolution will be the same as resolution of original video.
@@ -124,6 +127,7 @@ class VideoReader:
                 If True, frames will be extracted according to framerate and video timestamps,
                 otherwise just a raw stream of frames will be read
         """
+        path = str(path)
         assert start_frame >= 0, "Starting frame should be positive"
         self.path = path
         self.start_frame = start_frame
@@ -185,11 +189,11 @@ class VideoWriter:
     """
     Class for writing a video frame-by-frame
     """
-    def __init__(self, path:str, resolution: Tuple[int, int], fps: Optional[float] = None,
+    def __init__(self, path: Union[str, Path], resolution: Tuple[int, int], fps: Optional[float] = None,
             codec: str = 'h264', quality: Optional[int] = None, lossless: bool = False, **kwargs):
         """
         Args:
-            path (str): Path to output video
+            path (str, Path): Path to output video
             resolution (Tuple[int, int]): Resolution of the input frames and output video (width, height)
             fps (float): Target FPS. If None, will be set to ffmpeg's default
             codec (str): Target encoder (mpeg2 or h264)
@@ -202,6 +206,7 @@ class VideoWriter:
 
                 preset (str): H.264 compression preset
         """
+        path = str(path)
         # assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
         #     format(preset, H264_PRESETS)
         assert not lossless or codec in LOSSLESS_CODECS, "Codec '{}' does not support lossless encoding".format(codec)
