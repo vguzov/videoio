@@ -11,8 +11,8 @@ def uint16read(path: Union[str, Path], output_resolution: Tuple[int, int] = None
     Read 16-bit unsigned integer array encoded with uint16save function
     Args:
         path (str, Path): Path to input file
-        output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
-            If None, resolution will be the same as resolution of original video.
+        output_resolution (Tuple[int, int]): Sets the _resolution of the result (width, height).
+            If None, _resolution will be the same as _resolution of original video.
             Warning: changing this parameter may lead to undesirable data corruption.
         start_frame (int): frame to start reading from.
             Correct behaviour is guaranteed only if input array was produced by videoio.
@@ -114,8 +114,8 @@ class Uint16Reader:
         Iterable class for reading uint16 data sequentially
         Args:
             path (str, Path): Path to input file
-            output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
-                If None, resolution will be the same as resolution of original video.
+            output_resolution (Tuple[int, int]): Sets the _resolution of the result (width, height).
+                If None, _resolution will be the same as _resolution of original video.
                 Warning: changing this parameter may lead to undesirable data corruption.
             start_frame (int): frame to start reading from.
                 Correct behaviour is guaranteed only if input array was produced by videoio.

@@ -9,7 +9,7 @@ H264_PRESETS = ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium'
 
 def read_video_params(path: Union[str, Path], stream_number: int = 0) -> Dict:
     """
-    Read resolution and frame rate of the video
+    Read _resolution and frame rate of the video
     Args:
         path (str, Path): Path to input file
         stream_number (int): Stream number to extract video parameters from
