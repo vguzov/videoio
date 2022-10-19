@@ -8,7 +8,7 @@ from .info import read_video_params, H264_PRESETS
 
 
 def videoread(path: Union[str, Path], return_attributes: bool = False, stream_number: int = 0,
-              output_resolution: Tuple[int, int] = None, start_frame: int = 0,
+              output_resolution: Tuple[int, int] = None, output_framerate: float = None, start_frame: int = 0,
               respect_original_timestamps: bool = False) \
         -> Union[np.ndarray, Tuple[np.ndarray, Dict]]:
     """
@@ -19,6 +19,8 @@ def videoread(path: Union[str, Path], return_attributes: bool = False, stream_nu
         stream_number (int): Stream number to extract video parameters from
         output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
             If None, resolution will be the same as resolution of original video.
+        output_framerate (float): Sets the output framerate of the video to the given value.
+            Useful to work with VFR (Variable Frame Rate) videos. If None, will keep the original framerate (whether variable or constant).
         start_frame (int): frame to start reading from.
             Correct behaviour is guaranteed only if input video was produced by videoio.
         respect_original_timestamps (bool): whether to read frames according to timestamps or not
@@ -46,6 +48,8 @@ def videoread(path: Union[str, Path], return_attributes: bool = False, stream_nu
     if output_resolution is not None:
         resolution = output_resolution
         ffmpeg_input = ffmpeg_input.filter("scale", *resolution)
+    if output_framerate is not None:
+        ffmpeg_input = ffmpeg_input.filter("fps", output_framerate)
     images = []
     if respect_original_timestamps:
         ffmpeg_output = ffmpeg_input.output('pipe:', format='rawvideo', pix_fmt='rgb24')
@@ -113,7 +117,7 @@ class VideoReader:
     Iterable class for reading video frame-by-frame
     """
     def __init__(self, path: Union[str, Path], stream_number: int = 0,
-                 output_resolution: Tuple[int, int] = None, start_frame: int = 0,
+                 output_resolution: Tuple[int, int] = None, output_framerate: float = None, start_frame: int = 0,
                  respect_original_timestamps: bool = False):
         """
         Args:
@@ -121,6 +125,8 @@ class VideoReader:
             stream_number (int): Stream number to extract video parameters from
             output_resolution (Tuple[int, int]): Sets the resolution of the result (width, height).
                 If None, resolution will be the same as resolution of original video.
+            output_framerate (float): Sets the output framerate of the video to the given value.
+                Useful to work with VFR (Variable Frame Rate) videos. If None, will keep the original framerate (whether variable or constant).
             start_frame (int): frame to start reading from.
                 Correct behaviour is guaranteed only if input video was produced by videoio.
             respect_original_timestamps (bool): whether to read frames according to timestamps or not
@@ -132,6 +138,7 @@ class VideoReader:
         self.path = path
         self.start_frame = start_frame
         self.respect_original_timestamps = respect_original_timestamps
+        self.output_framerate = output_framerate
         if not os.path.isfile(path):
             raise FileNotFoundError("{} does not exist".format(path))
 
@@ -152,7 +159,8 @@ class VideoReader:
             ffmpeg_input = ffmpeg.input(self.path, loglevel='error')
         if self.apply_scale:
             ffmpeg_input = ffmpeg_input.filter("scale", *self.resolution)
-
+        if self.output_framerate is not None:
+            ffmpeg_input = ffmpeg_input.filter("fps", self.output_framerate)
         if self.respect_original_timestamps:
             ffmpeg_output = ffmpeg_input.output('pipe:', format='rawvideo', pix_fmt='rgb24')
         else:
