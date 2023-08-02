@@ -224,7 +224,7 @@ class VideoWriter:
                 encoding_params['crf'] = 0
         elif codec == "mpeg2":
             encoding_params["c:v"] = "mpeg2video"
-            encoding_params["qscale:v"] = 5
+            encoding_params["qscale:v"] = 2
         elif codec == "mpeg4":
             encoding_params["c:v"] = "libxvid"
             encoding_params["qscale:v"] = 5
