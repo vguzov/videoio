@@ -46,9 +46,9 @@ def videoread(path: Union[str, Path], return_attributes: bool = False, stream_nu
             start_frame_time = (start_frame - 0.5) / video_params['fps']
         else:
             start_frame_time = (start_frame - 0.5) / output_fps
-        ffmpeg_input = ffmpeg.input(path, loglevel='error', ss=start_frame_time)
+        ffmpeg_input = ffmpeg.input(path, loglevel='quiet', ss=start_frame_time)
     else:
-        ffmpeg_input = ffmpeg.input(path, loglevel='error')
+        ffmpeg_input = ffmpeg.input(path, loglevel='quiet')
     if output_resolution is not None:
         resolution = output_resolution
         ffmpeg_input = ffmpeg_input.filter("scale", *resolution)
@@ -93,7 +93,7 @@ def videosave(path: Union[str, Path], images: np.ndarray, lossless: bool = False
     assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
         format(preset, H264_PRESETS)
     resolution = images[0].shape[:2][::-1]
-    input_params = dict(format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(*resolution), loglevel='error')
+    input_params = dict(format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(*resolution), loglevel='quiet')
     if fps is not None:
         input_params['framerate'] = fps
     ffmpeg_input = ffmpeg.input('pipe:', **input_params)
@@ -166,9 +166,9 @@ class VideoReader:
                 start_frame_time = (self.start_frame - 0.5) / self.video_params['fps']
             else:
                 start_frame_time = (self.start_frame - 0.5) / self.output_fps
-            ffmpeg_input = ffmpeg.input(self.path, loglevel='error', ss=start_frame_time)
+            ffmpeg_input = ffmpeg.input(self.path, loglevel='quiet', ss=start_frame_time)
         else:
-            ffmpeg_input = ffmpeg.input(self.path, loglevel='error')
+            ffmpeg_input = ffmpeg.input(self.path, loglevel='quiet')
         if self.apply_scale:
             ffmpeg_input = ffmpeg_input.filter("scale", *self._resolution)
         if self.output_fps is not None:
@@ -249,7 +249,7 @@ class VideoWriter:
         assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
             format(preset, H264_PRESETS)
         self.resolution = resolution
-        input_params = dict(format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(*resolution), loglevel='error')
+        input_params = dict(format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(*resolution), loglevel='quiet')
         if fps is not None:
             input_params['framerate'] = fps
         ffmpeg_input = ffmpeg.input('pipe:', **input_params)

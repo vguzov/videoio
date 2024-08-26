@@ -28,9 +28,9 @@ def uint16read(path: Union[str, Path], output_resolution: Tuple[int, int] = None
     resolution = (video_params['width'], video_params['height'])
     if start_frame != 0:
         start_frame_time = (start_frame - 0.5) / video_params['fps']
-        ffmpeg_input = ffmpeg.input(path, loglevel='error', ss=start_frame_time)
+        ffmpeg_input = ffmpeg.input(path, loglevel='quiet', ss=start_frame_time)
     else:
-        ffmpeg_input = ffmpeg.input(path, loglevel='error')
+        ffmpeg_input = ffmpeg.input(path, loglevel='quiet')
     if output_resolution is not None:
         resolution = output_resolution
         ffmpeg_input = ffmpeg_input.filter("scale", *resolution)
@@ -80,7 +80,7 @@ def uint16save(path: Union[str, Path], data: np.ndarray, preset: str = 'slow', f
     assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}".\
         format(preset, H264_PRESETS)
     resolution = data[0].shape[::-1]
-    input_params = dict(format='rawvideo', pix_fmt='yuv444p', s='{}x{}'.format(*resolution), loglevel='error')
+    input_params = dict(format='rawvideo', pix_fmt='yuv444p', s='{}x{}'.format(*resolution), loglevel='quiet')
     if fps is not None:
         input_params['framerate'] = fps
     ffmpeg_input = ffmpeg.input('pipe:', **input_params)
@@ -139,9 +139,9 @@ class Uint16Reader:
     def __iter__(self):
         if self.start_frame != 0:
             start_frame_time = (self.start_frame - 0.5) / self.video_params['fps']
-            ffmpeg_input = ffmpeg.input(self.path, loglevel='error', ss=start_frame_time)
+            ffmpeg_input = ffmpeg.input(self.path, loglevel='quiet', ss=start_frame_time)
         else:
-            ffmpeg_input = ffmpeg.input(self.path, loglevel='error')
+            ffmpeg_input = ffmpeg.input(self.path, loglevel='quiet')
         if self.apply_scale:
             ffmpeg_input = ffmpeg_input.filter("scale", *self.resolution)
         self.ffmpeg_process = (
@@ -197,7 +197,7 @@ class Uint16Writer:
         path = str(path)
         assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}".\
             format(preset, H264_PRESETS)
-        input_params = dict(format='rawvideo', pix_fmt='yuv444p', s='{}x{}'.format(*resolution), loglevel='error')
+        input_params = dict(format='rawvideo', pix_fmt='yuv444p', s='{}x{}'.format(*resolution), loglevel='quiet')
         if fps is not None:
             input_params['framerate'] = fps
         ffmpeg_input = ffmpeg.input('pipe:', **input_params)
