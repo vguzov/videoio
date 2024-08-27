@@ -1,5 +1,6 @@
 from setuptools import setup
-version = '0.2.9'
+
+version = '0.3.0'
 
 with open("README.md", "r") as fi:
     long_description = fi.read()
@@ -7,13 +8,13 @@ with open("README.md", "r") as fi:
 keywords = ["mp4", "png", "h264", "video", "image", "depth", "ffmpeg"]
 
 classifiers = [
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache Software License',
-        'Natural Language :: English',
-        'Operating System :: OS Independent',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 3'
-    ]
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: Apache Software License',
+    'Natural Language :: English',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3'
+]
 
 setup(
     name="videoio",

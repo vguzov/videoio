@@ -3,7 +3,7 @@ import numpy as np
 import ffmpeg
 from pathlib import Path
 from typing import Tuple, Union
-from .info import read_video_params, H264_PRESETS
+from .info import read_video_params, H264_PRESETS, ensure_encoder_presence
 
 
 def uint16read(path: Union[str, Path], output_resolution: Tuple[int, int] = None, start_frame: int = 0) -> np.ndarray:
@@ -37,9 +37,9 @@ def uint16read(path: Union[str, Path], output_resolution: Tuple[int, int] = None
     frames = []
     ffmpeg_process = (
         ffmpeg_input
-            .output('pipe:', format='rawvideo', pix_fmt='yuv444p')
-            .global_args('-nostdin')
-            .run_async(pipe_stdout=True)
+        .output('pipe:', format='rawvideo', pix_fmt='yuv444p')
+        .global_args('-nostdin')
+        .run_async(pipe_stdout=True)
     )
     try:
         while True:
@@ -48,14 +48,14 @@ def uint16read(path: Union[str, Path], output_resolution: Tuple[int, int] = None
                 break
             in_frame = (
                 np
-                    .frombuffer(in_bytes, np.uint8)
-                    .reshape(3, *resolution[::-1])
+                .frombuffer(in_bytes, np.uint8)
+                .reshape(3, *resolution[::-1])
             )
-            upper_part = in_frame[2,:,:]
-            lower_coding = in_frame[0,:,:]
+            upper_part = in_frame[2, :, :]
+            lower_coding = in_frame[0, :, :]
             upper_isodd = (upper_part & 1) == 1
             lower_part = lower_coding.copy()
-            lower_part[upper_isodd] = 255-lower_part[upper_isodd]
+            lower_part[upper_isodd] = 255 - lower_part[upper_isodd]
             frame = lower_part.astype(np.uint16) + (upper_part.astype(np.uint16) << 8)
             frames.append(frame)
     finally:
@@ -73,11 +73,12 @@ def uint16save(path: Union[str, Path], data: np.ndarray, preset: str = 'slow', f
         preset (str): H.264 compression preset
         fps (float): Target FPS. If None, will be set to ffmpeg's default
     """
+    ensure_encoder_presence()
     path = str(path)
     data = np.array(data)
     assert len(data[0].shape) == 2, "Multiple dimentions is not supported"
     assert data.dtype == np.uint16 or data.dtype == np.uint8, "Dtype {} is not supported".format(data.dtype)
-    assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}".\
+    assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
         format(preset, H264_PRESETS)
     resolution = data[0].shape[::-1]
     input_params = dict(format='rawvideo', pix_fmt='yuv444p', s='{}x{}'.format(*resolution), loglevel='quiet')
@@ -91,15 +92,15 @@ def uint16save(path: Union[str, Path], data: np.ndarray, preset: str = 'slow', f
         lower_part = (data & 255).astype(np.uint8)
         upper_isodd = (upper_part & 1) == 1
         lower_coding = lower_part.copy()
-        lower_coding[upper_isodd] = 255-lower_coding[upper_isodd]
+        lower_coding[upper_isodd] = 255 - lower_coding[upper_isodd]
         data = np.stack([lower_coding, zeros, upper_part], axis=1)
     else:
         data = np.stack([data, zeros, zeros], axis=1)
     ffmpeg_process = (
         ffmpeg_input
-            .output(path, pix_fmt='yuv444p', **encoding_params)
-            .overwrite_output()
-            .run_async(pipe_stdin=True)
+        .output(path, pix_fmt='yuv444p', **encoding_params)
+        .overwrite_output()
+        .run_async(pipe_stdin=True)
     )
     try:
         for frame in data:
@@ -107,6 +108,7 @@ def uint16save(path: Union[str, Path], data: np.ndarray, preset: str = 'slow', f
     finally:
         ffmpeg_process.stdin.close()
         ffmpeg_process.wait()
+
 
 class Uint16Reader:
     def __init__(self, path: Union[str, Path], output_resolution: Tuple[int, int] = None, start_frame: int = 0):
@@ -182,10 +184,12 @@ class Uint16Reader:
     def __del__(self):
         self.close()
 
+
 class Uint16Writer:
     """
     Class for storing a sequence of uint16 arrays in H.264 encoded video
     """
+
     def __init__(self, path: Union[str, Path], resolution: Tuple[int, int], preset: str = 'slow', fps: float = None):
         """
         Args:
@@ -194,8 +198,9 @@ class Uint16Writer:
             preset (str): H.264 compression preset
             fps (float): Target FPS. If None, will be set to ffmpeg's default
         """
+        ensure_encoder_presence()
         path = str(path)
-        assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}".\
+        assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
             format(preset, H264_PRESETS)
         input_params = dict(format='rawvideo', pix_fmt='yuv444p', s='{}x{}'.format(*resolution), loglevel='quiet')
         if fps is not None:
@@ -204,9 +209,9 @@ class Uint16Writer:
         encoding_params = {'c:v': 'libx264', 'preset': preset, 'profile:v': 'high444', 'crf': 0}
         self.ffmpeg_process = (
             ffmpeg_input
-                .output(path, pix_fmt='yuv444p', **encoding_params)
-                .overwrite_output()
-                .run_async(pipe_stdin=True)
+            .output(path, pix_fmt='yuv444p', **encoding_params)
+            .overwrite_output()
+            .run_async(pipe_stdin=True)
         )
 
     def write(self, data: np.ndarray):

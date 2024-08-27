@@ -4,7 +4,7 @@ import ffmpeg
 import warnings
 from pathlib import Path
 from typing import Tuple, Dict, Union, Optional
-from .info import read_video_params, H264_PRESETS
+from .info import read_video_params, H264_PRESETS, ensure_encoder_presence
 
 
 def videoread(path: Union[str, Path], return_attributes: bool = False, stream_number: int = 0,
@@ -88,6 +88,7 @@ def videosave(path: Union[str, Path], images: np.ndarray, lossless: bool = False
         preset (str): H.264 compression preset
         fps (float): Target FPS. If None, will be set to ffmpeg's default
     """
+    ensure_encoder_presence()
     path = str(path)
     assert images[0].shape[2] == 3, "Alpha channel is not supported"
     assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
@@ -245,6 +246,7 @@ class VideoWriter:
             preset (str): H.264 compression preset
             fps (float): Target FPS. If None, will be set to ffmpeg's default
         """
+        ensure_encoder_presence()
         path = str(path)
         assert preset in H264_PRESETS, "Preset '{}' is not supported by libx264, supported presets are {}". \
             format(preset, H264_PRESETS)
